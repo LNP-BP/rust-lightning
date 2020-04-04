@@ -107,7 +107,7 @@ enum InitSyncTracker{
 	NodesSyncing(PublicKey),
 }
 
-struct Peer {
+pub struct Peer {
 	channel_encryptor: PeerChannelEncryptor,
 	outbound: bool,
 	their_node_id: Option<PublicKey>,
