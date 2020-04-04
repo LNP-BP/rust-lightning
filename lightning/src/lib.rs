@@ -18,9 +18,11 @@
 #![allow(bare_trait_objects)]
 #![allow(ellipsis_inclusive_range_patterns)]
 
-extern crate bitcoin;
-extern crate bitcoin_hashes;
-extern crate secp256k1;
+// We have to make this exports public for those code which requires other version
+// of bitcoin, hashes of secp256k1 lib than the one supported by this crate
+pub extern crate bitcoin;
+pub extern crate bitcoin_hashes;
+pub extern crate secp256k1;
 #[cfg(test)] extern crate rand;
 #[cfg(test)] extern crate hex;
 
