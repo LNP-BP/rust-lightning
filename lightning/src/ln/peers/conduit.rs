@@ -15,18 +15,23 @@ const KEY_ROTATION_INDEX: u32 = 1000;
 /// Automatically handles key rotation.
 /// For decryption, it is recommended to call `decrypt_message_stream` for automatic buffering.
 pub struct Conduit {
-	pub(super) encryptor: Encryptor,
-	pub(super) decryptor: Decryptor
+	/// Encrypting part
+	pub encryptor: Encryptor,
+
+	/// Decrypting part
+	pub decryptor: Decryptor
 
 }
 
-pub(super) struct Encryptor {
+/// Encrypting part of the conduit
+pub struct Encryptor {
 	sending_key: SymmetricKey,
 	sending_chaining_key: SymmetricKey,
 	sending_nonce: u32,
 }
 
-pub(super) struct Decryptor {
+/// Decrypting part of the conduit
+pub struct Decryptor {
 	receiving_key: SymmetricKey,
 	receiving_chaining_key: SymmetricKey,
 	receiving_nonce: u32,
@@ -60,6 +65,19 @@ impl Conduit {
 				pending_message_length: None
 			}
 		}
+	}
+
+	/// Creates conduit by joining encrypting and decrypting parts
+	pub fn join(encryptor: Encryptor, decryptor: Decryptor) -> Self {
+		Self {
+			encryptor,
+			decryptor
+		}
+	}
+
+	/// Splits conduit into an encrypting and decrypting parts
+	pub fn split(self) -> (Encryptor, Decryptor) {
+		(self.encryptor, self.decryptor)
 	}
 
 	/// Encrypt data to be sent to peer
