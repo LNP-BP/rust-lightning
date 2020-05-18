@@ -391,7 +391,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 				{
 					log_trace!(self, "Encoding and sending sync update message of type {} to {}", $msg.type_id(), log_pubkey!(peer.their_node_id.unwrap()));
 					match peer.encryptor {
-						PeerState::Connected(ref mut conduit) => peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!($msg)[..])),
+						PeerState::Connected(ref mut conduit) => peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!($msg)[..])),
 						_ => panic!("peer must be connected!")
 					}
 				}
@@ -558,7 +558,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								{
 									log_trace!(self, "Encoding and sending message of type {} to {}", $msg.type_id(), log_pubkey!(peer.their_node_id.unwrap()));
 									// we are in a context where conduit is known
-									peer.pending_outbound_buffer.push_back(encryptor.encrypt(&encode_msg!(&$msg)[..]));
+									peer.pending_outbound_buffer.push_back(encryptor.encrypt_buf(&encode_msg!(&$msg)[..]));
 									peers.peers_needing_send.insert(peer_descriptor.clone());
 								}
 							}
@@ -854,7 +854,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//TODO: Drop the pending channel? (or just let it timeout, but that sucks)
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -866,7 +866,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//TODO: Drop the pending channel? (or just let it timeout, but that sucks)
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -880,7 +880,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//they should just throw away this funding transaction
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -893,7 +893,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//they should just throw away this funding transaction
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -905,7 +905,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//TODO: Do whatever we're gonna do for handling dropped messages
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -918,7 +918,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//they should just throw away this funding transaction
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -934,21 +934,21 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
 							for msg in update_add_htlcs {
-								peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+								peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 							}
 							for msg in update_fulfill_htlcs {
-								peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+								peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 							}
 							for msg in update_fail_htlcs {
-								peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+								peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 							}
 							for msg in update_fail_malformed_htlcs {
-								peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+								peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 							}
 							if let &Some(ref msg) = update_fee {
-								peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+								peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 							}
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(commitment_signed)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(commitment_signed)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -960,7 +960,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//TODO: Do whatever we're gonna do for handling dropped messages
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -972,7 +972,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//TODO: Do whatever we're gonna do for handling dropped messages
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -984,7 +984,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//TODO: Do whatever we're gonna do for handling dropped messages
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -996,7 +996,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 								//TODO: Do whatever we're gonna do for handling dropped messages
 							});
 						if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-							peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+							peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 						}
 						self.do_attempt_write_data(&mut descriptor, peer);
 					},
@@ -1020,8 +1020,8 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 									}
 								}
 								if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-									peer.pending_outbound_buffer.push_back(conduit.encrypt(&encoded_msg[..]));
-									peer.pending_outbound_buffer.push_back(conduit.encrypt(&encoded_update_msg[..]));
+									peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encoded_msg[..]));
+									peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encoded_update_msg[..]));
 								}
 								self.do_attempt_write_data(&mut (*descriptor).clone(), peer);
 							}
@@ -1038,7 +1038,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 									continue
 								}
 								if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-									peer.pending_outbound_buffer.push_back(conduit.encrypt(&encoded_msg[..]));
+									peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encoded_msg[..]));
 								}
 								self.do_attempt_write_data(&mut (*descriptor).clone(), peer);
 							}
@@ -1055,7 +1055,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 									continue
 								}
 								if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-									peer.pending_outbound_buffer.push_back(conduit.encrypt(&encoded_msg[..]));
+									peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encoded_msg[..]));
 								}
 								self.do_attempt_write_data(&mut (*descriptor).clone(), peer);
 							}
@@ -1075,7 +1075,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 													log_pubkey!(node_id),
 													msg.data);
 											if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-												peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+												peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 											}
 											// This isn't guaranteed to work, but if there is enough free
 											// room in the send buffer, put the error message there...
@@ -1097,7 +1097,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 									//TODO: Do whatever we're gonna do for handling dropped messages
 								});
 								if let PeerState::Connected(ref mut conduit) = peer.encryptor {
-									peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(msg)));
+									peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(msg)));
 								}
 								self.do_attempt_write_data(&mut descriptor, peer);
 							},
@@ -1183,7 +1183,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref> PeerManager<Descriptor, CM> where 
 						ponglen: 0,
 						byteslen: 64,
 					};
-					peer.pending_outbound_buffer.push_back(conduit.encrypt(&encode_msg!(&ping)));
+					peer.pending_outbound_buffer.push_back(conduit.encrypt_buf(&encode_msg!(&ping)));
 					needs_to_write_data = true;
 				}
 
