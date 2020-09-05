@@ -68,7 +68,7 @@ impl Conduit {
 	}
 
 	/// Creates conduit by joining encrypting and decrypting parts
-	pub fn join(encryptor: Encryptor, decryptor: Decryptor) -> Self {
+	pub fn join_buf(encryptor: Encryptor, decryptor: Decryptor) -> Self {
 		Self {
 			encryptor,
 			decryptor
@@ -76,13 +76,13 @@ impl Conduit {
 	}
 
 	/// Splits conduit into an encrypting and decrypting parts
-	pub fn split(self) -> (Encryptor, Decryptor) {
+	pub fn split_buf(self) -> (Encryptor, Decryptor) {
 		(self.encryptor, self.decryptor)
 	}
 
 	/// Encrypt data to be sent to peer
-	pub fn encrypt(&mut self, buffer: &[u8]) -> Vec<u8> {
-		self.encryptor.encrypt(buffer)
+	pub fn encrypt_buf(&mut self, buffer: &[u8]) -> Vec<u8> {
+		self.encryptor.encrypt_buf(buffer)
 	}
 
 	pub(super) fn read(&mut self, data: &[u8]) {
@@ -98,8 +98,8 @@ impl Conduit {
 	}
 
 	/// Decrypt a message from the beginning of the provided buffer. Returns the consumed number of bytes.
-	fn decrypt(&mut self, buffer: &[u8]) -> (Option<Vec<u8>>, usize) {
-		self.decryptor.decrypt(buffer)
+	pub fn decrypt_buf(&mut self, buffer: &[u8]) -> (Option<Vec<u8>>, usize) {
+		self.decryptor.decrypt_buf(buffer)
 	}
 
 	fn increment_sending_nonce(&mut self) {
@@ -126,7 +126,8 @@ impl Conduit {
 }
 
 impl Encryptor {
-	pub(super) fn encrypt(&mut self, buffer: &[u8]) -> Vec<u8> {
+	/// Encrypt data to be sent to peer
+	pub fn encrypt_buf(&mut self, buffer: &[u8]) -> Vec<u8> {
 		let length = buffer.len() as u16;
 		let length_bytes = byte_utils::be16_to_array(length);
 
@@ -167,13 +168,14 @@ impl Decryptor {
 			read_buffer.extend_from_slice(data);
 		}
 
-		let (current_message, offset) = self.decrypt(&read_buffer[..]);
+		let (current_message, offset) = self.decrypt_buf(&read_buffer[..]);
 		read_buffer.drain(..offset); // drain the read buffer
 		self.read_buffer = Some(read_buffer); // assign the new value to the built-in buffer
 		current_message
 	}
 
-	fn decrypt(&mut self, buffer: &[u8]) -> (Option<Vec<u8>>, usize) {
+	/// Decrypt a message from the beginning of the provided buffer. Returns the consumed number of bytes.
+	pub fn decrypt_buf(&mut self, buffer: &[u8]) -> (Option<Vec<u8>>, usize) {
 		let message_length = if let Some(length) = self.pending_message_length {
 			// we have already decrypted the header
 			length
@@ -246,11 +248,11 @@ mod tests {
 		let (mut connected_peer, mut remote_peer) = setup_peers();
 
 		let message: Vec<u8> = vec![];
-		let encrypted_message = connected_peer.encrypt(&message);
+		let encrypted_message = connected_peer.encrypt_buf(&message);
 		assert_eq!(encrypted_message.len(), 2 + 16 + 16);
 
 		let decrypted_message = remote_peer.decrypt_single_message(Some(&encrypted_message)).unwrap();
-		assert_eq!(decrypted_message, vec![]);
+		assert_eq!(decrypted_message, Vec::<u8>::default());
 	}
 
 	#[test]
@@ -258,11 +260,11 @@ mod tests {
 		let (mut connected_peer, mut remote_peer) = setup_peers();
 		let message = hex::decode("68656c6c6f").unwrap();
 
-		let encrypted_message = connected_peer.encrypt(&message);
+		let encrypted_message = connected_peer.encrypt_buf(&message);
 		assert_eq!(encrypted_message, hex::decode("cf2b30ddf0cf3f80e7c35a6e6730b59fe802473180f396d88a8fb0db8cbcf25d2f214cf9ea1d95").unwrap());
 
 		// the second time the same message is encrypted, the ciphertext should be different
-		let encrypted_message = connected_peer.encrypt(&message);
+		let encrypted_message = connected_peer.encrypt_buf(&message);
 		assert_eq!(encrypted_message, hex::decode("72887022101f0b6753e0c7de21657d35a4cb2a1f5cde2650528bbc8f837d0f0d7ad833b1a256a1").unwrap());
 	}
 
@@ -275,7 +277,7 @@ mod tests {
 		let mut encrypted_messages: Vec<Vec<u8>> = Vec::new();
 
 		for _ in 0..1002 {
-			let encrypted_message = connected_peer.encrypt(&message);
+			let encrypted_message = connected_peer.encrypt_buf(&message);
 			encrypted_messages.push(encrypted_message);
 		}
 
@@ -293,7 +295,7 @@ mod tests {
 		let mut encrypted_messages: Vec<Vec<u8>> = Vec::new();
 
 		for _ in 0..1002 {
-			let encrypted_message = connected_peer.encrypt(&message);
+			let encrypted_message = connected_peer.encrypt_buf(&message);
 			encrypted_messages.push(encrypted_message);
 		}
 
