@@ -17,7 +17,7 @@ use chain::transaction::OutPoint;
 use chain::keysinterface;
 use ln::features::{ChannelFeatures, InitFeatures};
 use ln::msgs;
-use ln::msgs::OptionalField;
+use ln::msgs::*;
 use util::enforcing_trait_impls::EnforcingChannelKeys;
 use util::events;
 use util::logger::{Logger, Level, Record};
@@ -143,6 +143,144 @@ impl chaininterface::BroadcasterInterface for TestBroadcaster {
 	}
 }
 
+/// Test Spy infrastructure for the ChannelMessageHandler trait that tests can use to validate
+/// the correct callbacks were called.
+macro_rules! generate_message_handler_called_fns {
+	($($name: ident,)*) => {
+		pub struct ChannelMessageHandlerTestSpyCalledFns {
+		$(
+			pub $name: bool,
+		)*
+		}
+		impl ChannelMessageHandlerTestSpyCalledFns {
+			pub fn new() -> Self {
+				Self {
+				$(
+					$name: false,
+				)*
+				}
+			}
+		}
+	}
+}
+generate_message_handler_called_fns! {
+	handle_open_channel,
+	handle_accept_channel,
+	handle_funding_created,
+	handle_funding_signed,
+	handle_funding_locked,
+	handle_shutdown,
+	handle_closing_signed,
+	handle_update_add_htlc,
+	handle_update_fulfill_htlc,
+	handle_update_fail_htlc,
+	handle_update_fail_malformed_htlc,
+	handle_commitment_signed,
+	handle_revoke_and_ack,
+	handle_update_fee,
+	handle_announcement_signatures,
+	handle_channel_reestablish,
+	handle_error,
+	peer_connected,
+	peer_disconnected,
+}
+
+pub struct ChannelMessageHandlerTestSpy {
+	pub called: Mutex<ChannelMessageHandlerTestSpyCalledFns>
+}
+
+impl ChannelMessageHandlerTestSpy {
+	pub fn new() -> Self {
+		Self {
+			called: Mutex::new(ChannelMessageHandlerTestSpyCalledFns::new())
+		}
+	}
+}
+
+impl msgs::ChannelMessageHandler for ChannelMessageHandlerTestSpy {
+	fn handle_open_channel(&self, _their_node_id: &PublicKey, _their_features: InitFeatures, _msg: &OpenChannel) {
+		self.called.lock().unwrap().handle_open_channel = true;
+	}
+
+	fn handle_accept_channel(&self, _their_node_id: &PublicKey, _their_features: InitFeatures, _msg: &AcceptChannel) {
+		self.called.lock().unwrap().handle_accept_channel = true;
+	}
+
+	fn handle_funding_created(&self, _their_node_id: &PublicKey, _msg: &FundingCreated) {
+		self.called.lock().unwrap().handle_funding_created = true;
+	}
+
+	fn handle_funding_signed(&self, _their_node_id: &PublicKey, _msg: &FundingSigned) {
+		self.called.lock().unwrap().handle_funding_signed = true;
+	}
+
+	fn handle_funding_locked(&self, _their_node_id: &PublicKey, _msg: &FundingLocked) {
+		self.called.lock().unwrap().handle_funding_locked = true;
+	}
+
+	fn handle_shutdown(&self, _their_node_id: &PublicKey, _msg: &Shutdown) {
+		self.called.lock().unwrap().handle_shutdown = true;
+	}
+
+	fn handle_closing_signed(&self, _their_node_id: &PublicKey, _msg: &ClosingSigned) {
+		self.called.lock().unwrap().handle_closing_signed = true;
+	}
+
+	fn handle_update_add_htlc(&self, _their_node_id: &PublicKey, _msg: &UpdateAddHTLC) {
+		self.called.lock().unwrap().handle_update_add_htlc = true;
+	}
+
+	fn handle_update_fulfill_htlc(&self, _their_node_id: &PublicKey, _msg: &UpdateFulfillHTLC) {
+		self.called.lock().unwrap().handle_update_fulfill_htlc = true;
+	}
+
+	fn handle_update_fail_htlc(&self, _their_node_id: &PublicKey, _msg: &UpdateFailHTLC) {
+		self.called.lock().unwrap().handle_update_fail_htlc = true;
+	}
+
+	fn handle_update_fail_malformed_htlc(&self, _their_node_id: &PublicKey, _msg: &UpdateFailMalformedHTLC) {
+		self.called.lock().unwrap().handle_update_fail_malformed_htlc = true;
+	}
+
+	fn handle_commitment_signed(&self, _their_node_id: &PublicKey, _msg: &CommitmentSigned) {
+		self.called.lock().unwrap().handle_commitment_signed = true;
+	}
+
+	fn handle_revoke_and_ack(&self, _their_node_id: &PublicKey, _msg: &RevokeAndACK) {
+		self.called.lock().unwrap().handle_revoke_and_ack = true;
+	}
+
+	fn handle_update_fee(&self, _their_node_id: &PublicKey, _msg: &UpdateFee) {
+		self.called.lock().unwrap().handle_update_fee = true;
+	}
+
+	fn handle_announcement_signatures(&self, _their_node_id: &PublicKey, _msg: &AnnouncementSignatures) {
+		self.called.lock().unwrap().handle_announcement_signatures = true;
+	}
+
+	fn peer_disconnected(&self, _their_node_id: &PublicKey, _no_connection_possible: bool) {
+		self.called.lock().unwrap().peer_disconnected = true;
+	}
+
+	fn peer_connected(&self, _their_node_id: &PublicKey, _msg: &Init) {
+		self.called.lock().unwrap().peer_connected = true;
+	}
+
+	fn handle_channel_reestablish(&self, _their_node_id: &PublicKey, _msg: &ChannelReestablish) {
+		self.called.lock().unwrap().handle_channel_reestablish = true;
+	}
+
+	fn handle_error(&self, _their_node_id: &PublicKey, _msg: &ErrorMessage) {
+		self.called.lock().unwrap().handle_error = true;
+	}
+}
+
+impl events::MessageSendEventsProvider for ChannelMessageHandlerTestSpy {
+	fn get_and_clear_pending_msg_events(&self) -> Vec<events::MessageSendEvent> {
+		vec![]
+	}
+}
+
 pub struct TestChannelMessageHandler {
 	pub pending_events: Mutex<Vec<events::MessageSendEvent>>,
 }
@@ -183,6 +321,91 @@ impl events::MessageSendEventsProvider for TestChannelMessageHandler {
 		let mut ret = Vec::new();
 		mem::swap(&mut ret, &mut *pending_events);
 		ret
+	}
+}
+
+// &TestChannelMessageHandler passthroughs so TypeParameters can be either a value or ref in test object containers
+impl<'a> ChannelMessageHandler for &'a TestChannelMessageHandler {
+	fn handle_open_channel(&self, their_node_id: &PublicKey, their_features: InitFeatures, msg: &OpenChannel) {
+		TestChannelMessageHandler::handle_open_channel(self, their_node_id, their_features, msg);
+	}
+
+	fn handle_accept_channel(&self, their_node_id: &PublicKey, their_features: InitFeatures, msg: &AcceptChannel) {
+		TestChannelMessageHandler::handle_accept_channel(self, their_node_id, their_features, msg);
+	}
+
+	fn handle_funding_created(&self, their_node_id: &PublicKey, msg: &FundingCreated) {
+		TestChannelMessageHandler::handle_funding_created(self, their_node_id, msg);
+	}
+
+	fn handle_funding_signed(&self, their_node_id: &PublicKey, msg: &FundingSigned) {
+		TestChannelMessageHandler::handle_funding_signed(self, their_node_id, msg);
+	}
+
+	fn handle_funding_locked(&self, their_node_id: &PublicKey, msg: &FundingLocked) {
+		TestChannelMessageHandler::handle_funding_locked(self, their_node_id, msg);
+	}
+
+	fn handle_shutdown(&self, their_node_id: &PublicKey, msg: &Shutdown) {
+		TestChannelMessageHandler::handle_shutdown(self, their_node_id, msg);
+	}
+
+	fn handle_closing_signed(&self, their_node_id: &PublicKey, msg: &ClosingSigned) {
+		TestChannelMessageHandler::handle_closing_signed(self, their_node_id, msg);
+	}
+
+	fn handle_update_add_htlc(&self, their_node_id: &PublicKey, msg: &UpdateAddHTLC) {
+		TestChannelMessageHandler::handle_update_add_htlc(self, their_node_id, msg);
+	}
+
+	fn handle_update_fulfill_htlc(&self, their_node_id: &PublicKey, msg: &UpdateFulfillHTLC) {
+		TestChannelMessageHandler::handle_update_fulfill_htlc(self, their_node_id, msg);
+	}
+
+	fn handle_update_fail_htlc(&self, their_node_id: &PublicKey, msg: &UpdateFailHTLC) {
+		TestChannelMessageHandler::handle_update_fail_htlc(self, their_node_id, msg);
+	}
+
+	fn handle_update_fail_malformed_htlc(&self, their_node_id: &PublicKey, msg: &UpdateFailMalformedHTLC) {
+		TestChannelMessageHandler::handle_update_fail_malformed_htlc(self, their_node_id, msg);
+	}
+
+	fn handle_commitment_signed(&self, their_node_id: &PublicKey, msg: &CommitmentSigned) {
+		TestChannelMessageHandler::handle_commitment_signed(self, their_node_id, msg);
+	}
+
+	fn handle_revoke_and_ack(&self, their_node_id: &PublicKey, msg: &RevokeAndACK) {
+		TestChannelMessageHandler::handle_revoke_and_ack(self, their_node_id, msg);
+	}
+
+	fn handle_update_fee(&self, their_node_id: &PublicKey, msg: &UpdateFee) {
+		TestChannelMessageHandler::handle_update_fee(self, their_node_id, msg);
+	}
+
+	fn handle_announcement_signatures(&self, their_node_id: &PublicKey, msg: &AnnouncementSignatures) {
+		TestChannelMessageHandler::handle_announcement_signatures(self, their_node_id, msg);
+	}
+
+	fn peer_disconnected(&self, their_node_id: &PublicKey, no_connection_possible: bool) {
+		TestChannelMessageHandler::peer_disconnected(self, their_node_id, no_connection_possible);
+	}
+
+	fn peer_connected(&self, their_node_id: &PublicKey, msg: &Init) {
+		TestChannelMessageHandler::peer_connected(self, their_node_id, msg);
+	}
+
+	fn handle_channel_reestablish(&self, their_node_id: &PublicKey, msg: &ChannelReestablish) {
+		TestChannelMessageHandler::handle_channel_reestablish(self, their_node_id, msg);
+	}
+
+	fn handle_error(&self, their_node_id: &PublicKey, msg: &ErrorMessage) {
+		TestChannelMessageHandler::handle_error(self, their_node_id, msg);
+	}
+}
+
+impl<'a> events::MessageSendEventsProvider for &'a TestChannelMessageHandler {
+	fn get_and_clear_pending_msg_events(&self) -> Vec<events::MessageSendEvent> {
+		TestChannelMessageHandler::get_and_clear_pending_msg_events(self, )
 	}
 }
 
@@ -234,6 +457,132 @@ fn get_dummy_channel_update(short_chan_id: u64) -> msgs::ChannelUpdate {
 	}
 }
 
+/// Test Stub for the RoutingMessageHandler.
+pub struct RoutingMessageHandlerTestStub {
+	pub handle_node_announcement_return: Result<bool, LightningError>,
+	pub handle_channel_announcement_return: Result<bool, LightningError>,
+	pub handle_channel_update_return: Result<bool, LightningError>,
+	pub should_request_full_sync_return: bool
+}
+
+impl RoutingMessageHandlerTestStub {
+	pub fn new() -> Self {
+		Self {
+			handle_node_announcement_return: Ok(true),
+			handle_channel_announcement_return: Ok(true),
+			handle_channel_update_return: Ok(true),
+			should_request_full_sync_return: true
+		}
+	}
+}
+
+impl RoutingMessageHandler for RoutingMessageHandlerTestStub {
+	fn handle_node_announcement(&self, _msg: &NodeAnnouncement) -> Result<bool, LightningError> {
+		self.handle_node_announcement_return.clone()
+	}
+
+	fn handle_channel_announcement(&self, _msg: &ChannelAnnouncement) -> Result<bool, LightningError> {
+		self.handle_channel_announcement_return.clone()
+	}
+
+	fn handle_channel_update(&self, _msg: &ChannelUpdate) -> Result<bool, LightningError> {
+		self.handle_channel_update_return.clone()
+	}
+
+	fn handle_htlc_fail_channel_update(&self, _update: &HTLCFailChannelUpdate) { }
+
+	fn get_next_channel_announcements(&self, _starting_point: u64, _batch_amount: u8) -> Vec<(ChannelAnnouncement, Option<ChannelUpdate>, Option<ChannelUpdate>)> {
+		vec![]
+	}
+
+	fn get_next_node_announcements(&self, _starting_point: Option<&PublicKey>, _batch_amount: u8) -> Vec<NodeAnnouncement> {
+		vec![]
+	}
+
+	fn should_request_full_sync(&self, _node_id: &PublicKey) -> bool {
+		self.should_request_full_sync_return
+	}
+}
+
+/// Test Spy infrastructure for the RoutingMessageHandler trait that tests can use to validate
+/// the correct callbacks were called.
+macro_rules! generate_routing_handler_called_fns {
+	($($name: ident,)*) => {
+		pub struct RoutingMessageHandlerTestSpyCalledFns {
+		$(
+			pub $name: bool,
+		)*
+		}
+		impl RoutingMessageHandlerTestSpyCalledFns {
+			pub fn new() -> Self {
+				Self {
+				$(
+					$name: false,
+				)*
+				}
+			}
+		}
+	}
+}
+
+generate_routing_handler_called_fns!(
+	handle_node_announcement,
+	handle_channel_announcement,
+	handle_channel_update,
+	handle_htlc_fail_channel_update,
+	get_next_channel_announcements,
+	get_next_node_announcements,
+	should_request_full_sync,
+);
+
+pub struct RoutingMessageHandlerTestSpy {
+	pub called: Mutex<RoutingMessageHandlerTestSpyCalledFns>
+}
+
+impl RoutingMessageHandlerTestSpy {
+	pub fn new() -> Self {
+		Self {
+			called: Mutex::new(RoutingMessageHandlerTestSpyCalledFns::new())
+		}
+	}
+}
+
+impl RoutingMessageHandler for RoutingMessageHandlerTestSpy {
+	fn handle_node_announcement(&self, _msg: &NodeAnnouncement) -> Result<bool, LightningError> {
+		self.called.lock().unwrap().handle_node_announcement = true;
+		Ok(true)
+	}
+
+	fn handle_channel_announcement(&self, _msg: &ChannelAnnouncement) -> Result<bool, LightningError> {
+		self.called.lock().unwrap().handle_channel_announcement = true;
+		Ok(true)
+	}
+
+	fn handle_channel_update(&self, _msg: &ChannelUpdate) -> Result<bool, LightningError> {
+		self.called.lock().unwrap().handle_channel_update = true;
+		Ok(true)
+	}
+
+	fn handle_htlc_fail_channel_update(&self, _update: &HTLCFailChannelUpdate) {
+		self.called.lock().unwrap().handle_htlc_fail_channel_update = true;
+	}
+
+	fn get_next_channel_announcements(&self, _starting_point: u64, _batch_amount: u8) -> Vec<(ChannelAnnouncement, Option<ChannelUpdate>, Option<ChannelUpdate>)> {
+		self.called.lock().unwrap().get_next_channel_announcements = true;
+		vec![]
+	}
+
+	fn get_next_node_announcements(&self, _starting_point: Option<&PublicKey>, _batch_amount: u8) -> Vec<NodeAnnouncement> {
+		self.called.lock().unwrap().get_next_node_announcements = true;
+		vec![]
+	}
+
+	fn should_request_full_sync(&self, _node_id: &PublicKey) -> bool {
+		self.called.lock().unwrap().should_request_full_sync = true;
+		true
+	}
+}
+
 pub struct TestRoutingMessageHandler {
 	pub chan_upds_recvd: AtomicUsize,
 	pub chan_anns_recvd: AtomicUsize,
@@ -264,11 +613,11 @@ impl msgs::RoutingMessageHandler for TestRoutingMessageHandler {
 		Err(msgs::LightningError { err: "".to_owned(), action: msgs::ErrorAction::IgnoreError })
 	}
 	fn handle_htlc_fail_channel_update(&self, _update: &msgs::HTLCFailChannelUpdate) {}
-	fn get_next_channel_announcements(&self, starting_point: u64, batch_amount: u8) -> Vec<(msgs::ChannelAnnouncement, Option<msgs::ChannelUpdate>, Option<msgs::ChannelUpdate>)> {
+	fn get_next_channel_announcements(&self, _starting_point: u64, batch_amount: u8) -> Vec<(msgs::ChannelAnnouncement, Option<msgs::ChannelUpdate>, Option<msgs::ChannelUpdate>)> {
 		let mut chan_anns = Vec::new();
-		const TOTAL_UPDS: u64 = 100;
-		let end: u64 = cmp::min(starting_point + batch_amount as u64, TOTAL_UPDS - self.chan_anns_sent.load(Ordering::Acquire) as u64);
-		for i in starting_point..end {
+		const TOTAL_UPDS: u64 = 50;
+		let items_to_send = cmp::min(batch_amount as u64, TOTAL_UPDS - self.chan_anns_sent.load(Ordering::Acquire) as u64);
+		for i in 0..items_to_send {
 			let chan_upd_1 = get_dummy_channel_update(i);
 			let chan_upd_2 = get_dummy_channel_update(i);
 			let chan_ann = get_dummy_channel_announcement(i);
