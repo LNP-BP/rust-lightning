@@ -13,18 +13,18 @@ use ln::peers::{chacha, hkdf5869rfc};
 use util::byte_utils;
 use std::collections::VecDeque;
 
-pub(super) type SymmetricKey = [u8; 32];
+pub type SymmetricKey = [u8; 32];
 
 /// Maximum Lightning message data length according to
 /// [BOLT-8](https://github.com/lightningnetwork/lightning-rfc/blob/v1.0/08-transport.md#lightning-message-specification)
 /// and [BOLT-1](https://github.com/lightningnetwork/lightning-rfc/blob/master/01-messaging.md#lightning-message-format):
-const LN_MAX_MSG_LEN: usize = 65535;
-const LN_MAX_PACKET_LENGTH: usize = MESSAGE_LENGTH_HEADER_SIZE + chacha::TAG_SIZE + LN_MAX_MSG_LEN + chacha::TAG_SIZE;
+pub const LN_MAX_MSG_LEN: usize = 65535;
+pub const LN_MAX_PACKET_LENGTH: usize = MESSAGE_LENGTH_HEADER_SIZE + chacha::TAG_SIZE + LN_MAX_MSG_LEN + chacha::TAG_SIZE;
 
-const MESSAGE_LENGTH_HEADER_SIZE: usize = 2;
-const TAGGED_MESSAGE_LENGTH_HEADER_SIZE: usize = MESSAGE_LENGTH_HEADER_SIZE + chacha::TAG_SIZE;
+pub const MESSAGE_LENGTH_HEADER_SIZE: usize = 2;
+pub const TAGGED_MESSAGE_LENGTH_HEADER_SIZE: usize = MESSAGE_LENGTH_HEADER_SIZE + chacha::TAG_SIZE;
 
-const KEY_ROTATION_INDEX: u32 = 1000;
+pub const KEY_ROTATION_INDEX: u32 = 1000;
 
 /// Instantiate a new (Encryptor, Decryptor) with specified sending and receiving keys
 pub fn create_encryptor_decryptor(sending_key: SymmetricKey, receiving_key: SymmetricKey, chaining_key: SymmetricKey) -> (Encryptor, Decryptor) {
@@ -84,7 +84,7 @@ impl Iterator for Decryptor {
 }
 
 impl Encryptor {
-	pub fn encrypt(&mut self, buffer: &[u8]) -> Vec<u8> {
+	pub fn encrypt_buf(&mut self, buffer: &[u8]) -> Vec<u8> {
 		if buffer.len() > LN_MAX_MSG_LEN {
 			panic!("Attempted to encrypt message longer than {} bytes!", LN_MAX_MSG_LEN);
 		}
@@ -151,9 +151,9 @@ impl Decryptor {
 		Ok(())
 	}
 
-	// Decrypt the next payload from the slice returning the number of bytes consumed during the
-	// operation. This will always be (None, 0) if no payload could be decrypted.
-	fn decrypt_next(&mut self, buffer: &[u8]) -> Result<(Option<Vec<u8>>, usize), String> {
+	/// Decrypt the next payload from the slice returning the number of bytes consumed during the
+	/// operation. This will always be (None, 0) if no payload could be decrypted.
+	pub fn decrypt_next(&mut self, buffer: &[u8]) -> Result<(Option<Vec<u8>>, usize), String> {
 		let message_length = if let Some(length) = self.pending_message_length {
 			// we have already decrypted the header
 			length
@@ -236,7 +236,7 @@ mod tests {
 		let ((mut connected_encryptor, _), (_, mut remote_decryptor)) = setup_peers();
 
 		let message: Vec<u8> = vec![];
-		let encrypted_message = connected_encryptor.encrypt(&message);
+		let encrypted_message = connected_encryptor.encrypt_buf(&message);
 		assert_eq!(encrypted_message.len(), 2 + 16 + 16);
 
 		remote_decryptor.read(&encrypted_message[..]).unwrap();
@@ -252,7 +252,7 @@ mod tests {
 		let ((mut connected_encryptor, _), (_, mut remote_decryptor)) = setup_peers();
 
 		let message: Vec<u8> = vec![1];
-		let encrypted_message = connected_encryptor.encrypt(&message);
+		let encrypted_message = connected_encryptor.encrypt_buf(&message);
 
 		remote_decryptor.read(&encrypted_message[..1]).unwrap();
 		assert!(remote_decryptor.next().is_none());
@@ -269,7 +269,7 @@ mod tests {
 		let ((mut connected_encryptor, _), (_, mut remote_decryptor)) = setup_peers();
 
 		let message: Vec<u8> = vec![1];
-		let encrypted_message = connected_encryptor.encrypt(&message);
+		let encrypted_message = connected_encryptor.encrypt_buf(&message);
 
 		remote_decryptor.read(&encrypted_message[..20]).unwrap();
 		assert!(remote_decryptor.next().is_none());
@@ -285,11 +285,11 @@ mod tests {
 		let ((mut connected_encryptor, _), _) = setup_peers();
 		let message = hex::decode("68656c6c6f").unwrap();
 
-		let encrypted_message = connected_encryptor.encrypt(&message);
+		let encrypted_message = connected_encryptor.encrypt_buf(&message);
 		assert_eq!(encrypted_message, hex::decode("cf2b30ddf0cf3f80e7c35a6e6730b59fe802473180f396d88a8fb0db8cbcf25d2f214cf9ea1d95").unwrap());
 
 		// the second time the same message is encrypted, the ciphertext should be different
-		let encrypted_message = connected_encryptor.encrypt(&message);
+		let encrypted_message = connected_encryptor.encrypt_buf(&message);
 		assert_eq!(encrypted_message, hex::decode("72887022101f0b6753e0c7de21657d35a4cb2a1f5cde2650528bbc8f837d0f0d7ad833b1a256a1").unwrap());
 	}
 
@@ -302,7 +302,7 @@ mod tests {
 		let mut encrypted_messages: Vec<Vec<u8>> = Vec::new();
 
 		for _ in 0..1002 {
-			let encrypted_message = connected_encryptor.encrypt(&message);
+			let encrypted_message = connected_encryptor.encrypt_buf(&message);
 			encrypted_messages.push(encrypted_message);
 		}
 
@@ -320,7 +320,7 @@ mod tests {
 		let mut encrypted_messages: Vec<Vec<u8>> = Vec::new();
 
 		for _ in 0..1002 {
-			let encrypted_message = connected_encryptor.encrypt(&message);
+			let encrypted_message = connected_encryptor.encrypt_buf(&message);
 			encrypted_messages.push(encrypted_message);
 		}
 
@@ -347,7 +347,7 @@ mod tests {
 	#[test]
 	fn decryption_failure_errors() {
 		let ((mut connected_encryptor, _), (_, mut remote_decryptor)) = setup_peers();
-		let encrypted = connected_encryptor.encrypt(&[1]);
+		let encrypted = connected_encryptor.encrypt_buf(&[1]);
 
 		remote_decryptor.receiving_key = [0; 32];
 		assert_eq!(remote_decryptor.read(&encrypted), Err("invalid hmac".to_string()));
@@ -365,7 +365,7 @@ mod tests {
 	#[test]
 	fn decryptor_iterator_one_item_valid() {
 		let ((mut connected_encryptor, _), (_, mut remote_decryptor)) = setup_peers();
-		let encrypted = connected_encryptor.encrypt(&[1]);
+		let encrypted = connected_encryptor.encrypt_buf(&[1]);
 		remote_decryptor.read(&encrypted).unwrap();
 
 		assert_eq!(remote_decryptor.next(), Some(vec![1]));
@@ -384,7 +384,7 @@ mod tests {
 	fn max_message_len_encryption() {
 		let ((mut connected_encryptor, _), _) = setup_peers();
 		let msg = [4u8; LN_MAX_MSG_LEN + 1];
-		let _should_panic = connected_encryptor.encrypt(&msg);
+		let _should_panic = connected_encryptor.encrypt_buf(&msg);
 	}
 
 	// Test that the decryptor can handle multiple partial reads() that result in a total size
@@ -395,8 +395,8 @@ mod tests {
 		let msg1 = [1u8; LN_MAX_MSG_LEN];
 		let msg2 = [2u8; LN_MAX_MSG_LEN];
 
-		let encrypted1 = connected_encryptor.encrypt(&msg1);
-		let encrypted2 = connected_encryptor.encrypt(&msg2);
+		let encrypted1 = connected_encryptor.encrypt_buf(&msg1);
+		let encrypted2 = connected_encryptor.encrypt_buf(&msg2);
 
 		let read1 = &encrypted1[..1];
 		let mut read2 = vec![];

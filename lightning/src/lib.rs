@@ -18,7 +18,6 @@
 //! generated/etc. This makes it a good candidate for tight integration into an existing wallet
 //! instead of having a rather-separate lightning appendage to a wallet.
 
-#![cfg_attr(not(feature = "fuzztarget"), deny(missing_docs))]
 #![forbid(unsafe_code)]
 
 // In general, rust is absolutely horrid at supporting users doing things like,

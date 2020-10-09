@@ -26,17 +26,6 @@ pub mod handler;
 mod hkdf5869rfc;
 mod outbound_queue;
 
-#[cfg(feature = "fuzztarget")]
 pub mod encryption;
-#[cfg(not(feature = "fuzztarget"))]
-mod encryption;
-
-#[cfg(feature = "fuzztarget")]
 pub mod handshake;
-#[cfg(not(feature = "fuzztarget"))]
-mod handshake;
-
-#[cfg(feature = "fuzztarget")]
 pub mod transport;
-#[cfg(not(feature = "fuzztarget"))]
-mod transport;

@@ -99,7 +99,7 @@ impl<PeerHandshakeImpl: IPeerHandshake> ITransport for Transport<PeerHandshakeIm
 
 				let mut buffer = VecWriter(Vec::new());
 				wire::write(message, &mut buffer).unwrap();
-				outbound_queue.push_back(completed_handshake_info.encryptor.encrypt(&buffer.0));
+				outbound_queue.push_back(completed_handshake_info.encryptor.encrypt_buf(&buffer.0));
 			}
 		}
 	}

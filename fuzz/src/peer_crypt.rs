@@ -139,7 +139,7 @@ fn do_encrypted_communication_tests(generator: &mut FuzzGen,
 
 		// randomly choose sender of message
 		let receiver_unencrypted_msg = if generator.generate_bool()? {
-			let encrypted_msg = initiator_completed_handshake_info.encryptor.encrypt(sender_unencrypted_msg);
+			let encrypted_msg = initiator_completed_handshake_info.encryptor.encrypt_buf(sender_unencrypted_msg);
 			if let Ok(_) = responder_completed_handshake_info.decryptor.read(&encrypted_msg) {
 				if let Some(msg) = responder_completed_handshake_info.decryptor.next() {
 					msg
@@ -152,7 +152,7 @@ fn do_encrypted_communication_tests(generator: &mut FuzzGen,
 				return Ok(());
 			}
 		} else {
-			let encrypted_msg = responder_completed_handshake_info.encryptor.encrypt(sender_unencrypted_msg);
+			let encrypted_msg = responder_completed_handshake_info.encryptor.encrypt_buf(sender_unencrypted_msg);
 			if let Ok(_) = initiator_completed_handshake_info.decryptor.read(&encrypted_msg) {
 				if let Some(msg) = initiator_completed_handshake_info.decryptor.next() {
 					msg
